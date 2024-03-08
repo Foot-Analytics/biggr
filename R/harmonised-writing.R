@@ -550,7 +550,9 @@ generate_longitudinal_benchmarking_indicators <- function (
                                 if (!is.null(modelId)) { list(
                                   `bigg:isEstimatedByModel` = modelSubject)
                                 },
-                                if (!(indicator %in% c("HeatingDegreeDays", "CoolingDegreeDays"))) { list(
+                                if (indicator %in% c("HeatingDegreeDays", "CoolingDegreeDays")) {
+                                  list(`bigg:hasMeasuredProperty` = paste0("bigg:","Temperature"))
+                                } else { list(
                                   `bigg:hasMeasuredProperty` = if(startsWith(measuredProperty,"bigg:")){ measuredProperty
                                   } else {paste0("bigg:",measuredProperty)}) },
                                 if (!(indicator %in% c("HeatingDegreeDays", "CoolingDegreeDays"))) { list(
@@ -572,14 +574,26 @@ generate_longitudinal_benchmarking_indicators <- function (
         indDfAuxMeta <- data.frame(
           `individualSubject` = namespace_integrator(buildingSubject, namespaces),
           `keyPerformanceIndicator` = indicator,
-          `measuredProperty` = namespace_integrator(paste0("bigg:",measuredProperty), namespaces),
-          `measuredPropertyComponent` = namespace_integrator(paste0("bigg:",measuredPropertyComponent), namespaces),
           `unit` = namespace_integrator(indicatorsUnitsSubjects[[indicator]], namespaces),
           `frequency` = frequency,
           `modelSubject` = namespace_integrator(modelSubject, namespaces),
           `modelName` = if(is.na(modelSubject)){NA}else{namespace_integrator(paste0("bigg:",modelName), namespaces)},
           `modelBased` = !is.na(modelSubject)
         )
+        if((indicator %in% c("HeatingDegreeDays", "CoolingDegreeDays"))){
+          indDfAuxMeta <- cbind(
+            indDfAuxMeta, 
+            data.frame(
+              `measuredProperty` = namespace_integrator(paste0("bigg:","Temperature"), namespaces)
+            ))
+        } else {
+          indDfAuxMeta <- cbind(
+            indDfAuxMeta, 
+            data.frame(
+              `measuredProperty` = namespace_integrator(paste0("bigg:",measuredProperty), namespaces),
+              `measuredPropertyComponent` = namespace_integrator(paste0("bigg:",measuredPropertyComponent), namespaces)
+            ))
+        }
         results_ts[[singleKPISubjectHash]]$full <- cbind(indDfAux,indDfAuxMeta)
         results_ts[[singleKPISubjectHash]]$full <- 
           results_ts[[singleKPISubjectHash]]$full %>% 
