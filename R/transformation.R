@@ -859,37 +859,66 @@ get_change_point_temperature <- function(consumptionData, weatherData,
     return(x)
   }
   
-  fd_tw_fit <- fd_tw_fit %>% 
-    mutate(
-      incr = m2.dsig$incr,
-      incrl = !is.na(incr),
-      decr = m2.dsig$decr,
-      decrl = !is.na(decr)
-    ) %>%
-    arrange(group,data) %>%
-    group_by(group) %>% 
-    mutate(
-      incrg = group_vector_on_condition_and_nearby_elements(incrl),
-      decrg = group_vector_on_condition_and_nearby_elements(decrl)
-    ) %>% ungroup()
-    
+  if(group_var){
+    fd_tw_fit <- fd_tw_fit %>% 
+      mutate(
+        incr = m2.dsig$incr,
+        incrl = !is.na(incr),
+        decr = m2.dsig$decr,
+        decrl = !is.na(decr)
+      ) %>%
+      arrange(group,data) %>%
+      group_by(group) %>% 
+      mutate(
+        incrg = group_vector_on_condition_and_nearby_elements(incrl),
+        decrg = group_vector_on_condition_and_nearby_elements(decrl)
+      ) %>% ungroup()
+  } else {
+    fd_tw_fit <- fd_tw_fit %>% 
+      mutate(
+        incr = m2.dsig$incr,
+        incrl = !is.na(incr),
+        decr = m2.dsig$decr,
+        decrl = !is.na(decr)
+      ) %>%
+      arrange(data) %>%
+      mutate(
+        incrg = group_vector_on_condition_and_nearby_elements(incrl),
+        decrg = group_vector_on_condition_and_nearby_elements(decrl)
+      )
+  }
   
   
   # Do not allow heating dependencies with higher temperatures than cooling dependencies.
-  fd_tw_fit <- fd_tw_fit %>%
-    left_join(
-      fd_tw_fit %>% filter(!is.na(incrg)) %>% group_by(group,incrg) %>% summarise(
-        considerIncr = max(data) >= 20 & length(data)>=3 )
-    ) %>%
-    left_join(
-      fd_tw_fit %>% filter(!is.na(decrg)) %>% group_by(group,decrg) %>% summarise(
-        considerDecr = min(data) <= 16 & length(data)>=3 )
-    ) %>%
-    mutate(
-      incr = ifelse(considerIncr,incr,NA),
-      decr = ifelse(considerDecr,decr,NA)
-    )
-  
+  if(group_var){
+    fd_tw_fit <- fd_tw_fit %>%
+      left_join(
+        fd_tw_fit %>% filter(!is.na(incrg)) %>% group_by(group,incrg) %>% summarise(
+          considerIncr = max(data) >= 20 & length(data)>=3 )
+      ) %>%
+      left_join(
+        fd_tw_fit %>% filter(!is.na(decrg)) %>% group_by(group,decrg) %>% summarise(
+          considerDecr = min(data) <= 16 & length(data)>=3 )
+      ) %>%
+      mutate(
+        incr = ifelse(considerIncr,incr,NA),
+        decr = ifelse(considerDecr,decr,NA)
+      )
+  } else {
+    fd_tw_fit <- fd_tw_fit %>%
+      left_join(
+        fd_tw_fit %>% filter(!is.na(incrg)) %>% group_by(incrg) %>% summarise(
+          considerIncr = max(data) >= 20 & length(data)>=3 )
+      ) %>%
+      left_join(
+        fd_tw_fit %>% filter(!is.na(decrg)) %>% group_by(decrg) %>% summarise(
+          considerDecr = min(data) <= 16 & length(data)>=3 )
+      ) %>%
+      mutate(
+        incr = ifelse(considerIncr,incr,NA),
+        decr = ifelse(considerDecr,decr,NA)
+      )
+  }
   incr <- fd_tw_fit %>% filter(!is.na(incr))
   decr <- fd_tw_fit %>% filter(!is.na(decr))
   

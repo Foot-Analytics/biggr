@@ -337,6 +337,8 @@ detect_ts_calendar_model_outliers_window <- function(data,
   lowerPrediction <- (1 - lowerPercentualThreshold / 100.0) * prediction$lower
   upperPrediction <- (1 + upperPercentualThreshold / 100.0) * prediction$upper
 
+  # ggplot(cbind(newdata,prediction)) + geom_line(aes(time,lower),col="green") + geom_line(aes(time,upper),col="red") + geom_line(aes(time,Qe))
+  
   # Use percentual threshold in order to identify outliers over the quantile
   # baseline already obtained
   if (mode == "lower") {
