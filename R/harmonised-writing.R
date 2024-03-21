@@ -282,12 +282,21 @@ calculate_indicator_not_aggregable_by_time <- function(indicator, annualEnergySa
 #' the weights that should be considered when time-aggregate the results.
 
 calculate_indicator <-  function(data, indicator, consumptionColumn, baselineConsumptionColumn, energyPriceColumn, 
-                                 carbonEmissionsColumn, buildingGrossFloorArea, heatingDegreeDays18Column, coolingDegreeDays21Column){
+                                 carbonEmissionsColumn, buildingGrossFloorArea, heatingDegreeDays18Column, coolingDegreeDays21Column, 
+                                 modelName = NULL){
   if (indicator == "EnergyUse") {
-    valueInd <- data.frame("ind"=data[, consumptionColumn])
+    if(is.null(modelName)){
+      valueInd <- data.frame("ind"=data[, consumptionColumn])
+    } else {
+      valueInd <- data.frame("ind"=data[, baselineConsumptionColumn])
+    }
   }
   else if (indicator == "EnergyUseIntensity") {
-    valueInd <- data.frame("ind"=data[, consumptionColumn]/buildingGrossFloorArea)
+    if(is.null(modelName)){
+      valueInd <- data.frame("ind"=data[, consumptionColumn]/buildingGrossFloorArea)
+    } else {
+      valueInd <- data.frame("ind"=data[, baselineConsumptionColumn]/buildingGrossFloorArea)
+    }
   }
   else if (indicator == "EnergyUseSavings") {
     valueInd <- data.frame("ind"=data[, baselineConsumptionColumn] - data[, consumptionColumn])
@@ -301,10 +310,18 @@ calculate_indicator <-  function(data, indicator, consumptionColumn, baselineCon
     valueInd <- data.frame("ind"=(data[, baselineConsumptionColumn] - data[, consumptionColumn]) / buildingGrossFloorArea)
   }
   else if (indicator == "EnergyCost" && !is.null(energyPriceColumn)) {
-    valueInd <- data.frame("ind"=(data[, consumptionColumn] * data[, energyPriceColumn]))
+    if(is.null(modelName)){
+      valueInd <- data.frame("ind"=(data[, consumptionColumn] * data[, energyPriceColumn]))
+    } else {
+      valueInd <- data.frame("ind"=data[, baselineConsumptionColumn] * data[, energyPriceColumn])
+    }
   }
   else if (indicator == "EnergyCostIntensity" && !is.null(energyPriceColumn)) {
-    valueInd <- data.frame("ind"=(data[, consumptionColumn] * data[, energyPriceColumn])/buildingGrossFloorArea)
+    if(is.null(modelName)){
+      valueInd <- data.frame("ind"=(data[, consumptionColumn] * data[, energyPriceColumn])/buildingGrossFloorArea)
+    } else {
+      valueInd <- data.frame("ind"=(data[, baselineConsumptionColumn] * data[, energyPriceColumn])/buildingGrossFloorArea)
+    }
   }
   else if (indicator == "EnergyCostSavings" && !is.null(energyPriceColumn)) {
     valueInd <- data.frame("ind"=((data[, baselineConsumptionColumn] - data[, consumptionColumn]) * 
@@ -322,11 +339,19 @@ calculate_indicator <-  function(data, indicator, consumptionColumn, baselineCon
                            data[, energyPriceColumn])/buildingGrossFloorArea)
   }
   else if (indicator == "EnergyEmissions" && !is.null(carbonEmissionsColumn)) {
-    valueInd <- data.frame("ind"=(data[, consumptionColumn] * data[, carbonEmissionsColumn]))
+    if(is.null(modelName)){
+      valueInd <- data.frame("ind"=(data[, consumptionColumn] * data[, carbonEmissionsColumn]))
+    } else {
+      valueInd <- data.frame("ind"=data[, baselineConsumptionColumn] * data[, carbonEmissionsColumn])
+    }
   }
   else if (indicator == "EnergyEmissionsIntensity" && 
            !is.null(carbonEmissionsColumn)) {
-    valueInd <- data.frame("ind"=(data[, consumptionColumn] * data[, carbonEmissionsColumn])/buildingGrossFloorArea)
+    if(is.null(modelName)){
+      valueInd <- data.frame("ind"=(data[, consumptionColumn] * data[, carbonEmissionsColumn])/buildingGrossFloorArea)
+    } else {
+      valueInd <- data.frame("ind"=(data[, baselineConsumptionColumn] * data[, carbonEmissionsColumn])/buildingGrossFloorArea)
+    }
   }
   else if (indicator == "EnergyEmissionsSavingsRelative" && !is.null(carbonEmissionsColumn)) {
     valueInd <- data.frame("ind"=((data[, baselineConsumptionColumn] - data[, consumptionColumn]) * 
@@ -473,7 +498,8 @@ generate_longitudinal_benchmarking_indicators <- function (
     frequencies_ <- frequencies
     originalDataPeriod <- detect_time_step(data[, timeColumn])
     valueInd <- calculate_indicator(data, indicator, consumptionColumn, baselineConsumptionColumn, energyPriceColumn, 
-                                    carbonEmissionsColumn, buildingGrossFloorArea, heatingDegreeDays18Column, coolingDegreeDays21Column)
+                                    carbonEmissionsColumn, buildingGrossFloorArea, heatingDegreeDays18Column, 
+                                    coolingDegreeDays21Column, modelName = modelName)
     
     # If the HDD or CDD are not available in 'data' object, calculate it based on the outdoor temperature
     if ((indicator %in% c("HeatingDegreeDays", "CoolingDegreeDays")) && 
@@ -577,7 +603,7 @@ generate_longitudinal_benchmarking_indicators <- function (
           `unit` = namespace_integrator(indicatorsUnitsSubjects[[indicator]], namespaces),
           `frequency` = frequency,
           `modelSubject` = namespace_integrator(modelSubject, namespaces),
-          `modelName` = if(is.na(modelSubject)){NA}else{namespace_integrator(paste0("bigg:",modelName), namespaces)},
+          `modelName` = if(is.na(modelSubject)){"NoModel"}else{namespace_integrator(paste0("bigg:",modelName), namespaces)},
           `modelBased` = !is.na(modelSubject)
         )
         if((indicator %in% c("HeatingDegreeDays", "CoolingDegreeDays"))){
