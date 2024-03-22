@@ -1797,7 +1797,7 @@ append_cost_to_sensor <- function(buildingsRdf, timeseriesObject, tariffSubject,
         SELECT ?ct 
         WHERE {
           ?ct a bigg:ContractedTariff .
-          FILTER (?ct = <',tariffSubject,'>) .
+          FILTER (?ct IN (<',paste0(tariffSubject,collapse='>,<'),'>)) .
         }
       }
       ?ct bigg:hasTariff ?tar .
@@ -1911,7 +1911,7 @@ append_emissions_to_sensor <- function(buildingsRdf, timeseriesObject, emissions
         SELECT ?em
         WHERE {
           ?em a bigg:CO2EmissionsFactor .
-          FILTER (?em = <',emissionsSubject,'>) .
+          FILTER (?em IN (<',paste0(emissionsSubject,collapse='>,<'),'>)) .
         }
       }
       ?em bigg:hasCO2EmissionsFactorList ?efl.
