@@ -577,7 +577,8 @@ generate_longitudinal_benchmarking_indicators <- function (
                                   `bigg:isEstimatedByModel` = modelSubject)
                                 },
                                 if (indicator %in% c("HeatingDegreeDays", "CoolingDegreeDays")) {
-                                  list(`bigg:hasMeasuredProperty` = paste0("bigg:","Temperature"))
+                                  list(`bigg:hasMeasuredProperty` = paste0("bigg:",indicator,
+                                    if(indicator=="HeatingDegreeDays"){"18"}else{"21"}))
                                 } else { list(
                                   `bigg:hasMeasuredProperty` = if(startsWith(measuredProperty,"bigg:")){ measuredProperty
                                   } else {paste0("bigg:",measuredProperty)}) },
@@ -610,7 +611,8 @@ generate_longitudinal_benchmarking_indicators <- function (
           indDfAuxMeta <- cbind(
             indDfAuxMeta, 
             data.frame(
-              `measuredProperty` = namespace_integrator(paste0("bigg:","Temperature"), namespaces)
+              `measuredProperty` = namespace_integrator(paste0("bigg:",indicator,
+                if(indicator=="HeatingDegreeDays"){"18"}else{"21"}), namespaces)
             ))
         } else {
           indDfAuxMeta <- cbind(
