@@ -520,7 +520,7 @@ check_measurements_by_building <- function(buildingsRdf, timeseriesObject, updat
       mapply(FUN = function(i){
         if (dev_aggregator_metadata$existsDataFromSensors[i]){
           max(measurements_metadata[
-            measurements_metadata$sensorId %in% 
+            measurements_metadata$sensorId %in%
               dev_aggregator_metadata$sensorIdsRelated[[i]],
           ]$timeSeriesStart)
         } else {
@@ -540,12 +540,10 @@ check_measurements_by_building <- function(buildingsRdf, timeseriesObject, updat
     },1:nrow(dev_aggregator_metadata)),tz="UTC",
     origin=as.POSIXct("1970-01-01 00:00:00",tz="UTC"))
     dev_aggregator_metadata$timeSeriesNumberOfDays <- 
-      if(dev_aggregator_metadata$timeSeriesEnd & dev_aggregator_metadata$timeSeriesStart){
+      ifelse(is.finite(dev_aggregator_metadata$timeSeriesEnd) & is.finite(dev_aggregator_metadata$timeSeriesStart),
         lubridate::period_to_seconds(lubridate::as.period(
-          dev_aggregator_metadata$timeSeriesEnd - dev_aggregator_metadata$timeSeriesStart)) / (3600 * 24)
-      } else {
-        0
-      }
+          dev_aggregator_metadata$timeSeriesEnd - dev_aggregator_metadata$timeSeriesStart)) / (3600 * 24),
+      0)
     dev_aggregator_metadata$aggregationCanBeCalculated <- 
       dev_aggregator_metadata$existsDataFromSensors & 
       dev_aggregator_metadata$timeSeriesStart <= dev_aggregator_metadata$timeSeriesEnd
