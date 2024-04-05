@@ -937,6 +937,10 @@ generate_eem_assessment_indicators <- function(
         results_ts[[singleKPISubjectHash]]$full <- cbind(indDfAux,indDfAuxMeta)
         results_ts[[singleKPISubjectHash]]$full <- 
           results_ts[[singleKPISubjectHash]]$full %>% filter(is.finite(value)) %>%
+          mutate(
+            start = parsedate::parse_iso_8601(start),
+            end = parsedate::parse_iso_8601(end)
+          ) %>%
           {
             if(frequency==""){
               .
@@ -1198,6 +1202,10 @@ generate_eem_assessment_indicators <- function(
             results_ts[[singleKPISubjectHash]]$full <- cbind(indDfAux,indDfAuxMeta)
             results_ts[[singleKPISubjectHash]]$full <- 
               results_ts[[singleKPISubjectHash]]$full %>% filter(is.finite(value)) %>%
+              mutate(
+                start = parsedate::parse_iso_8601(start),
+                end = parsedate::parse_iso_8601(end)
+              ) %>%
               {
                 if(frequency==""){
                   .
