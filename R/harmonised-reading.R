@@ -582,7 +582,7 @@ check_static_information_by_building <- function(buildingsRdf, updateHadoopStatu
   if (!is.null(eems)){
     metadata <- metadata %>% full_join(
       eems %>% group_by(buildingSubject) %>% 
-        summarise(numberOfEEMs = length(unique(eemSubject))),
+        summarise(numberOfEEMs = length(unique(eemSubject[!is.na(eemSubject)]))),
       by="buildingSubject"
     )
   } else {
@@ -593,7 +593,7 @@ check_static_information_by_building <- function(buildingsRdf, updateHadoopStatu
   if (!is.null(projects)){
     metadata <- metadata %>% full_join(
       projects %>% group_by(buildingSubject) %>% 
-        summarise(numberOfProjects = length(unique(eemProjectSubject))),
+        summarise(numberOfProjects = length(unique(eemProjectSubject[!is.na(eemSubject)]))),
       by="buildingSubject"
     )
   } else {
