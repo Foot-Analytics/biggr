@@ -593,7 +593,7 @@ check_static_information_by_building <- function(buildingsRdf, updateHadoopStatu
   if (!is.null(projects)){
     metadata <- metadata %>% full_join(
       projects %>% group_by(buildingSubject) %>% 
-        summarise(numberOfProjects = length(unique(eemProjectSubject[!is.na(eemSubject)]))),
+        summarise(numberOfProjects = length(unique(eemProjectSubject[!is.na(eemProjectSubject)]))),
       by="buildingSubject"
     )
   } else {
