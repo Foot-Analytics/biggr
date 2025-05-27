@@ -1058,6 +1058,352 @@ RandomForest <- function(input_parameters=NULL){
   return(modelFramework)
 }
 
+XGBoost <- function(input_parameters=NULL){
+  input_parameters_ini <- input_parameters
+  if(is.null(input_parameters)){
+    input_parameters <- data.frame(
+      parameter = "parameter",
+      class = "character")
+  }
+  input_parameters$label <- input_parameters$parameter
+  modelFramework <- list(
+    label = "XGBoost",
+    library = NULL,
+    type = "Regression",
+    ## Define the ARX parameters
+    parameters = input_parameters,
+    grid = if(is.null(input_parameters_ini)){
+      function(x, y, len = NULL, search = "grid") {
+        data.frame(parameter = "none")
+      }
+    } else {
+      function(x, y, len = NULL, search = "grid") {
+        p <- ncol(x)
+        r <- nrow(x)
+        if(search == "grid") {
+          grid <- expand.grid(mapply(function(k)1:len,1:r))
+          colnames(grid) <- colnames(x)
+        } else {
+          grid <- expand.grid(mapply(function(k)sample(1:p, size = len),1:r))
+          colnames(grid) <- colnames(x)
+        }
+      }
+    },
+    loop = NULL,
+    fit = function(x, y, wts, param, lev, last, classProbs, formulaTerms, 
+                   transformationSentences=NULL, trainMask=NULL,
+                   maxPredictionValue=NULL, minPredictionValue=NULL,
+                   clusteringResults=NULL, 
+                   ...) {
+      
+      # x <<- x
+      # y <<- y
+      # params <<- param
+      # param <- params
+      # formulaTerms <<- formulaTerms
+      # transformationSentences <<- transformationSentences
+      # maxPredictionValue <<- maxPredictionValue
+      # minPredictionValue <<- minPredictionValue
+      # clusteringResults <<- clusteringResults
+      # trainMask <<- trainMask
+      
+      features <- all.vars(formulaTerms)[2:length(all.vars(formulaTerms))]
+      outputName <- all.vars(formulaTerms)[1]
+      if(paste0("AR_",outputName) %in% colnames(param)){
+        if(as.logical(param[paste0("AR_",outputName)]==0)){
+          param <- param[,-which(colnames(param) %in% paste0("AR_",outputName))]
+        }
+        features <- c(outputName, features)
+      }
+      # Join x and y in a single data.frame
+      data <- if(is.data.frame(x)) x else as.data.frame(x)
+      data[,outputName] <- y
+      
+      # Transform input data if it is needed
+      transformation <- data_transformation_wrapper(
+        data=data, features=features, transformationSentences = transformationSentences, 
+        param = param, weatherDependenceByCluster = weatherDependenceByCluster,
+        clusteringResults = clusteringResults)
+      data <- transformation$data
+      features <- transformation$features
+      featuresAll <- transformation$featuresAll
+      transformationItems <- transformation$items
+      transformationResults <- transformation$results
+      
+      # Generate the lags, if needed
+      if(any(grepl("^AR_",names(param)))){
+        maxLag <- max(param[grepl("^AR_",names(param))])
+      } else {
+        maxLag <- 0
+      }
+      data <- lag_components(data,maxLag,featuresAll)
+      data <- data[complete.cases(data[,featuresAll]),]
+      
+      # Generate the lagged formula for the ARX
+      ARX_form <- as.formula(
+        sprintf("%s ~ %s",
+                outputName,
+                paste(
+                  "0",
+                  paste0(do.call(
+                    c,
+                    lapply(
+                      features,
+                      function(f){
+                        f_ <- f
+                        if(f %in% names(transformationItems)){
+                          f <- transformationItems[[f]]$formula
+                        }
+                        AR_term(features = f, 
+                                if(!(paste0("AR_",f_) %in% colnames(param))){
+                                  0
+                                } else if(f[1]==outputName){
+                                  1:param[,paste0("AR_",f_)]
+                                } else {
+                                  0:param[,paste0("AR_",f_)]
+                                },
+                                suffix = NULL)
+                      }
+                    )
+                  ),
+                  collapse="+"),
+                  sep=" + ")
+        )
+      )
+      # Train the model
+      if(!is.null(trainMask)){
+        data <- data[trainMask,]
+      }
+      
+      data_matrix <- model.matrix(ARX_form,data[is.finite(data[,outputName]),])
+      
+      
+      colnames(data_matrix) <- gsub(":","_",colnames(data_matrix))
+      
+      
+      # mod <- ranger(x = data_matrix, y=y[is.finite(y)], data = data, num.trees = 500,num.threads = 1,min.node.size = 6,
+      #               mtry = sqrt(ncol(data_matrix)), num.random.splits = 6,splitrule = 'extratrees')
+      mod <- xgboost(data = xgb.DMatrix(data = data_matrix, label=y[is.finite(y)]), max_depth = param$max_depth, eta = param$eta, lambda = param$lambda, alpha = param$alpha,
+                     nrounds = param$nrounds, gamma=param$gamma, min_child_weight=param$min_child_weight, early_stopping_rounds=param$early_stopping_rounds,
+                     objective = "reg:squarederror")
+      
+      # Store the meta variables
+      mod$meta <- list(
+        formula = ARX_form,
+        features = features,
+        outputName = outputName,
+        maxPredictionValue = maxPredictionValue,
+        minPredictionValue = minPredictionValue,
+        outputInit = setNames(
+          list(data[min(nrow(data),nrow(data)-maxLag+1):nrow(data),outputName]),
+          outputName
+        ),
+        inputInit = setNames(
+          lapply(features[!(features %in% outputName)],function(f){data[min(nrow(data),nrow(data)-maxLag+1):nrow(data),f]}),
+          features[!(features %in% outputName)]
+        ),
+        param = param,
+        maxLag = maxLag,
+        transformationSentences = transformationSentences,
+        transformationResults = transformationResults,
+        clusteringResults = clusteringResults
+      )
+      mod
+      
+    },
+    predict = function(modelFit, newdata, submodels, forceGlobalInputFeatures=NULL, forceInitInputFeatures=NULL,
+                       forceInitOutputFeatures=NULL, forceOneStepPrediction=F, predictionIntervals=F) {
+      
+      # modelFit <<- modelFit
+      # newdata <<- newdata
+      newdata <- as.data.frame(newdata)
+      features <- modelFit$meta$features[
+        !(modelFit$meta$features %in% modelFit$meta$outputName)]
+      param <- modelFit$meta$param
+      maxLag <- modelFit$meta$maxLag
+      outputName <- modelFit$meta$outputName
+      maxPredictionValue <- modelFit$meta$maxPredictionValue
+      minPredictionValue <- modelFit$meta$minPredictionValue
+      clusteringResults <- modelFit$meta$clusteringResults
+      formula <- modelFit$meta$formula
+      
+      # Initialize the global input features if needed
+      # Change the inputs if are specified in forceGlobalInputFeatures
+      if (!is.null(forceGlobalInputFeatures)){
+        for (f in names(forceGlobalInputFeatures)){
+          if(!(length(forceGlobalInputFeatures[[f]])==1 || 
+               length(forceGlobalInputFeatures[[f]])==nrow(newdata))){
+            stop(sprintf("forceGlobalInputFeatures[[%s]] needs to have a length of 1 
+                     or equal to the number of rows of newdata argument (%s).",f, nrow(newdata)))
+          }
+          newdata[,f] <- forceGlobalInputFeatures[[f]]
+        }
+      }
+      
+      # Load the model input and output initialisation features directly from the model
+      forceInitInputFeatures <- if(is.null(forceInitInputFeatures)){modelFit$meta$inputInit}else{forceInitInputFeatures}
+      forceInitOutputFeatures <- if(is.null(forceInitOutputFeatures)){modelFit$meta$outputInit}else{forceInitOutputFeatures}
+      transformationSentences <- modelFit$meta$transformationSentences
+      transformationResults <- modelFit$meta$transformationResults
+      
+      newdata <- if(any(!(names(forceInitOutputFeatures) %in% colnames(newdata)))){
+        cbind(newdata,do.call(cbind,setNames(
+          lapply(FUN = function(i){
+            rep(NA,nrow(newdata))
+          }, names(forceInitOutputFeatures)[!(names(forceInitOutputFeatures) %in% colnames(newdata))]),
+          nm= names(forceInitOutputFeatures)[!(names(forceInitOutputFeatures) %in% colnames(newdata))]
+        )))
+      } else {newdata}
+      
+      if(maxLag>0){
+        newdata <- 
+          rbind(
+            setNames(data.frame(lapply(FUN = function(f){
+              initItem <- if(f %in% names(forceInitInputFeatures)) {
+                forceInitInputFeatures[[f]]
+              } else if(f %in% names(forceInitOutputFeatures)) {
+                forceInitOutputFeatures[[f]]
+              } else {
+                rep(newdata[1,f],maxLag)
+              }
+              c(rep(initItem[1],max(0,maxLag-length(initItem))),tail(initItem,maxLag))
+            },unique(c(colnames(newdata),names(forceInitOutputFeatures))))),
+            nm=unique(c(colnames(newdata),names(forceInitOutputFeatures))))[,colnames(newdata)],
+            newdata)
+      }
+      # if(!is.null(forceInitInputFeatures)){
+      #   factor_char_features <- names(forceInitInputFeatures)[
+      #     mapply(FUN=function(i)class(i),forceInitInputFeatures) %in% c("factor","character")]
+      #   for(fcf in factor_char_features){
+      #     aux <- fastDummies::dummy_cols(as.factor(forceInitInputFeatures[[fcf]]),remove_selected_columns = T)
+      #     colnames(aux) <- gsub(".data",fcf,colnames(aux))
+      #     forceInitInputFeatures <- c(forceInitInputFeatures, as.list(aux))
+      #   }
+      # }
+      # if(!is.null(forceInitOutputFeatures)){
+      #   factor_char_features <- names(forceInitOutputFeatures)[
+      #     mapply(FUN=function(i)class(i),forceInitOutputFeatures) %in% c("factor","character")]
+      #   for(fcf in factor_char_features){
+      #     aux <- fastDummies::dummy_cols(as.factor(forceInitOutputFeatures[[fcf]]),remove_selected_columns = T)
+      #     colnames(aux) <- gsub(".data",fcf,colnames(aux))
+      #     forceInitOutputFeatures <- c(forceInitOutputFeatures, as.list(aux))
+      #   }
+      # }
+      
+      # Transform input data if it is needed
+      transformation <- data_transformation_wrapper(
+        data=newdata, features=features, transformationSentences = transformationSentences, 
+        transformationResults = transformationResults, param = param, 
+        clusteringResults = clusteringResults)
+      newdata <- transformation$data
+      features <- transformation$features
+      featuresAll <- transformation$featuresAll
+      
+      # Change the transformed inputs if are specified in forceGlobalInputFeatures
+      if (!is.null(forceGlobalInputFeatures)){
+        for (f in names(forceGlobalInputFeatures)[
+          names(forceGlobalInputFeatures) %in% names(modelFit$meta$transformationSentences)]
+        ){
+          if(!(length(forceGlobalInputFeatures[[f]])==1 ||
+               length(forceGlobalInputFeatures[[f]])==(nrow(newdata)+maxLag))){
+            stop(sprintf("forceGlobalInputFeatures[[%s]] needs to have a length of 1
+                     or equal to the number of rows of newdata argument (%s).",f, nrow(newdata)))
+          }
+          if(length(forceGlobalInputFeatures[[f]])==1){
+            newdata[,f] <- c(rep(NA,maxLag),rep(forceGlobalInputFeatures[[f]],
+                                                nrow(newdata)-maxLag))
+          } else {
+            newdata[,f] <- c(rep(NA,maxLag),forceGlobalInputFeatures[[f]])
+          }
+        }
+      }
+      
+      # Lag the components that has been initialised
+      newdata <- lag_components(data = newdata, 
+                                maxLag = maxLag, 
+                                featuresNames = c(outputName,featuresAll)#modelFit$meta$features, 
+                                # forceGlobalInputFeatures = forceGlobalInputFeatures,
+                                # forceInitInputFeatures = forceInitInputFeatures,
+                                # forceInitOutputFeatures = forceInitOutputFeatures
+      )
+      newdata <- newdata[(maxLag+1):nrow(newdata),]
+      
+      # Predict at multi-step ahead or one-step ahead prediction, 
+      # depending if some AR input is considered using the output variable
+      if(forceOneStepPrediction==F && paste("AR",outputName,sep="_") %in% colnames(param)){
+        for (i in 1:nrow(newdata)){
+          newdata <- lag_components(data = newdata,
+                                    maxLag = maxLag,
+                                    featuresNames = outputName,
+                                    predictionStep = i-1#,
+                                    # forceInitInputFeatures = forceInitInputFeatures,
+                                    # forceInitOutputFeatures = forceInitOutputFeatures
+          )
+          if(predictionIntervals){
+            # prediction_results <- as.data.frame(
+            #   predict(object = modelFit, newdata = newdata[i,], interval = "prediction",
+            #           level = 0.93-0.07)) %>%
+            #   rename("average"="fit")
+            # prediction_results$sigma <- (prediction_results$upr - prediction_results$lwr)/
+            #   (qnorm(0.93)-qnorm(0.07))
+            # newdata[i,paste0(outputName,"_",colnames(prediction_results))] <- prediction_results
+          } else {
+            if(outputName %in% colnames(newdata)) {newdata[[outputName]]=0}
+            dnewdata <- xgb.DMatrix(data=model.matrix(formula,newdata[i,]))
+            newdata[i,outputName] <- predict(modelFit,dnewdata)
+          }
+        }
+      } else {
+        if(predictionIntervals){
+          # prediction_results <- as.data.frame(
+          #   predict(object = modelFit, newdata = newdata, interval = "prediction",
+          #           level = 0.93-0.07)) %>%
+          #   rename("average"="fit")
+          # prediction_results$sigma <- (prediction_results$upr - prediction_results$lwr)/
+          #   (qnorm(0.93)-qnorm(0.07))
+          # newdata[,paste0(outputName,"_",colnames(prediction_results))] <- prediction_results
+        } else {
+          if(outputName %in% colnames(newdata)) {newdata[[outputName]]=0}
+          dnewdata <- xgb.DMatrix(data=model.matrix(formula,newdata))
+          newdata[,outputName] <- predict(modelFit,dnewdata)
+        }
+      }
+      result <- 
+        if(predictionIntervals){
+          newdata[,paste0(outputName,"_",colnames(prediction_results))]
+        } else {
+          newdata[,outputName]
+        }
+      if (!is.null(maxPredictionValue)){
+        if(predictionIntervals){
+          mapply(function(r){
+            ifelse(result[,r] > maxPredictionValue, maxPredictionValue, result[,r])},
+            colnames(result))
+        } else {
+          ifelse(result > maxPredictionValue, maxPredictionValue, result)
+        }
+      }
+      if (!is.null(minPredictionValue)){
+        if(predictionIntervals){
+          mapply(function(r){
+            ifelse(result[,r] < minPredictionValue, minPredictionValue, result[,r])},
+            colnames(result))
+        } else {
+          ifelse(result < minPredictionValue, minPredictionValue, result)
+        }
+      }
+      result
+    },
+    prob = NULL,
+    varImp = NULL,
+    predictors = function(x, ...) predictors(x$terms),
+    levels = NULL,
+    sort = function(x) x)
+  
+  return(modelFramework)
+}
+
+
 #' Generalised Linear Model
 #' 
 #' This function is a custom model wrapper for caret R-package to train 
