@@ -42,6 +42,7 @@ Depends:
     gratia,
     ggplot2,
     gridExtra,
+    xgboost,
     R (>= 4.1.2)
 License: "" 
 RoxygenNote: 7.2.3
