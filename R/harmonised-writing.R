@@ -8,6 +8,31 @@ bigg_namespaces <- c("bigg" = "http://bigg-project.eu/ontology#",
                      "geo" = "http://www.geonames.org/ontology#"
 )
 
+#BIGG v2 Ontology namespaces
+bigg_namespaces_v2 <- c("bigg" = "http://bigg-project.eu/ontology#",
+                        "unit" = "http://qudt.org/vocab/unit/",
+                        "xsd" = "http://www.w3.org/2001/XMLSchema#",
+                        "vcard" = "http://www.w3.org/2006/vcard/",
+                        "geonames"= "https://www.geonames.org/",
+                        "gn"= "https://www.geonames.org/ontology#",
+                        "geo"= "http://www.w3.org/2003/01/geo/wgs84_pos",
+                        "rdfs"= "http://www.w3.org/2000/01/rdf-schema",
+                        "vcard"= "http://www.w3.org/2006/vcard/",
+                        "geosp"= "http://www.opengis.net/ont/geosparql#",
+                        "s4bldg"= "https://saref.etsi.org/saref4bldg/",
+                        "foaf"= "http://xmlns.com/foaf/0.1/",
+                        "ssn"= "http://www.w3.org/ns/ssn/",
+                        "saref"= "https://saref.etsi.org/core/",
+                        "s4syst"= "https://saref.etsi.org/saref4syst/",
+                        "s4agri"= "https://saref.etsi.org/saref4agri/",
+                        "qudt"= "http://qudt.org/schema/qudt/",
+                        "dcterm"= "http://purl.org/dc/terms/",
+                        "owl"= "http://www.w3.org/2002/07/owl",
+                        "s4ener"= "https://saref.etsi.org/saref4ener/",
+                        "s4city"= "https://saref.etsi.org/saref4city/",
+                        "bee"= "https://www.beegroup-cimne.com/bee/ontology#"
+)
+
 #' Parse datetime to ISO 8601 format
 #' 
 #' This function parses the format of a POSIXct object to ISO 8601 with Zulu as UTC timezone definition. 
