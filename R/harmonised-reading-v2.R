@@ -589,6 +589,41 @@ get_building_systems_list_v2 <- function(buildingsRdf, buildingSubjects){
 }
 
 
+
+get_building_deployments_names_v2 <- function(buildingsRdf, buildingSubjects){
+  
+  metadata_df <- list()
+  for (Building in buildingSubjects) {
+    
+    # candidates <- find_related_subjects_per_type(buildingsRdf, "https://gencat.cat#system-00001-CPD-districtClima", "s4syst:hasSubSystem", "bigg:BuildingSystem")
+    aux_df <- suppressMessages(buildingsRdf %>% rdf_query(paste0(    
+      set_query_prefixes_v2(namespaces),
+      '
+      SELECT ?dp ?bz ?dpn
+      WHERE {
+        ?bs ssn:hasDeployment ?dp .
+        ?dp bigg:deploymentType ?dpn .
+        ?dp s4agri:isDeployedAtSpace ?bz .
+       
+      }')))
+    
+    aux <- aux_df[(aux_df$bz %in% find_related_subjects_per_type(buildingsRdf, buildingSubjects, "geosp:sfContains", "s4bldg:BuildingSpace")),]
+    
+    # find_related_subjects_per_type(buildingsRdf, aux_df$bs, "s4syst:hasSubSystem", "bigg:BuildingSystem")
+    
+    metadata_df <- append(metadata_df, setNames(list(as.character(aux$dpn)),
+                                                nm=Building))
+    
+  }
+  return( 
+    if(length(metadata_df)>0) {
+      metadata_df
+    } else { NULL } 
+  )
+}
+
+
+
 get_buildingspaces_systems_list_v2 <- function(buildingsRdf, buildingspaceSubjects){
   
   # candidates <- find_related_subjects_per_type(buildingsRdf, "https://gencat.cat#system-00001-CPD-districtClima", "s4syst:hasSubSystem", "bigg:BuildingSystem")
@@ -1402,6 +1437,9 @@ get_measurement_metadata_v2 <- function(buildingsRdf, measurementId, tz){
       optional {?hasMeasurement bigg:hasEstimationMethod ?hasEstimationMethod .}
       optional {?hasEstimationMethod bigg:considerEstimatedValues ?considerEstimatedValues .}
     }')))
+  metadata_df <- metadata_df %>%
+    group_by(across(all_of(setdiff(colnames(metadata_df), "timeSeriesTimeAggregationFunction")))) %>%
+    summarise(timeSeriesTimeAggregationFunction = list(timeSeriesTimeAggregationFunction), .groups = "drop")
   metadata_df$tz <- tz
   metadata_df$measuredProperty <- gsub(paste0(bigg_namespaces_v2,collapse="|"),"",
                                        metadata_df$measuredProperty)
@@ -2219,6 +2257,11 @@ get_generation_device_aggregators_metadata_v2 <- function(buildingsRdf){
     optional {?hasMeasurement bigg:measurementFormula ?deviceAggregatorFormula .}
   }')))
   
+  result <- result %>%
+    group_by(across(all_of(setdiff(colnames(result), "deviceAggregatorTimeAggregationFunction")))) %>%
+    summarise(deviceAggregatorTimeAggregationFunction = list(deviceAggregatorTimeAggregationFunction), .groups = "drop")
+  
+  
   if(length(result)>0){
     buildings <- suppressMessages(buildingsRdf %>% rdf_query(paste0(    
       set_query_prefixes_v2(namespaces),
@@ -2297,6 +2340,11 @@ get_grid_device_aggregators_metadata_v2 <- function(buildingsRdf){
     optional {?hasMeasurement bigg:measurementFormula ?deviceAggregatorFormula .}
   }')))
   
+  result <- result %>%
+    group_by(across(all_of(setdiff(colnames(result), "deviceAggregatorTimeAggregationFunction")))) %>%
+    summarise(deviceAggregatorTimeAggregationFunction = list(deviceAggregatorTimeAggregationFunction), .groups = "drop")
+  
+  
   if(length(result)>0){
     buildings <- suppressMessages(buildingsRdf %>% rdf_query(paste0(    
       set_query_prefixes_v2(namespaces),
@@ -2373,6 +2421,11 @@ get_storage_device_aggregators_metadata_v2 <- function(buildingsRdf){
     optional {?hasMeasurement bigg:measurementFrequency ?deviceAggregatorFrequency .}
     optional {?hasMeasurement bigg:measurementFormula ?deviceAggregatorFormula .}
   }')))
+  
+  result <- result %>%
+    group_by(across(all_of(setdiff(colnames(result), "deviceAggregatorTimeAggregationFunction")))) %>%
+    summarise(deviceAggregatorTimeAggregationFunction = list(deviceAggregatorTimeAggregationFunction), .groups = "drop")
+  
   
   if(length(result)>0){
     buildings <- suppressMessages(buildingsRdf %>% rdf_query(paste0(    
@@ -2451,6 +2504,11 @@ get_weather_device_aggregators_metadata_v2 <- function(buildingsRdf){
     optional {?hasMeasurement bigg:measurementFormula ?deviceAggregatorFormula .}
   }')))
   
+  result <- result %>%
+    group_by(across(all_of(setdiff(colnames(result), "deviceAggregatorTimeAggregationFunction")))) %>%
+    summarise(deviceAggregatorTimeAggregationFunction = list(deviceAggregatorTimeAggregationFunction), .groups = "drop")
+  
+  
   if(length(result)>0){
     buildings <- suppressMessages(buildingsRdf %>% rdf_query(paste0(    
       set_query_prefixes_v2(namespaces),
@@ -2511,6 +2569,10 @@ get_selected_device_aggregators_metadata_v2 <- function(buildingsRdf, selectedSy
     optional {?hasMeasurement bigg:measurementFrequency ?deviceAggregatorFrequency .}
     optional {?hasMeasurement bigg:measurementFormula ?deviceAggregatorFormula .}
   }')))
+  
+  result <- result %>%
+    group_by(across(all_of(setdiff(colnames(result), "deviceAggregatorTimeAggregationFunction")))) %>%
+    summarise(deviceAggregatorTimeAggregationFunction = list(deviceAggregatorTimeAggregationFunction), .groups = "drop")
   
   if(length(result)>0){
     buildings <- suppressMessages(buildingsRdf %>% rdf_query(paste0(    
