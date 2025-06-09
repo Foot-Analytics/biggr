@@ -623,6 +623,38 @@ get_building_deployments_names_v2 <- function(buildingsRdf, buildingSubjects){
 }
 
 
+get_building_unique_commodities_v2 <- function(buildingsRdf, buildingSubjects){
+  
+  metadata_df <- list()
+  for (Building in buildingSubjects) {
+    
+    # candidates <- find_related_subjects_per_type(buildingsRdf, "https://gencat.cat#system-00001-CPD-districtClima", "s4syst:hasSubSystem", "bigg:BuildingSystem")
+    aux_df <- suppressMessages(buildingsRdf %>% rdf_query(paste0(    
+      set_query_prefixes_v2(namespaces),
+      '
+      SELECT ?bs ?c
+      WHERE {
+        ?bs s4ener:hasCommodity ?c .
+      }')))
+    # get_building_buildingsystems_v2(buildingsRdf,Building)
+    aux <- aux_df[(aux_df$bs %in% get_building_buildingsystems_v2(buildingsRdf,Building)[[Building]]),]
+    
+    aux$c <- gsub(paste0(bigg_namespaces_v2,collapse="|"),"",
+         aux$c)
+    
+    # find_related_subjects_per_type(buildingsRdf, aux_df$bs, "s4syst:hasSubSystem", "bigg:BuildingSystem")
+    
+    metadata_df <- append(metadata_df, setNames(list(as.character(unique(aux$c))),
+                                                nm=Building))
+    
+  }
+  return( 
+    if(length(metadata_df)>0) {
+      metadata_df
+    } else { NULL } 
+  )
+}
+
 
 get_buildingspaces_systems_list_v2 <- function(buildingsRdf, buildingspaceSubjects){
   
