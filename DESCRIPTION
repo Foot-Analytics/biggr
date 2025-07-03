@@ -30,7 +30,7 @@ Depends:
     fastDummies,
     caret,
     penalized,
-    onlineforecast,
+    onlineforecast (== 1.0.0),
     matrixStats,
     qgam,
     GA,
