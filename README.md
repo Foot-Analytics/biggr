@@ -11,6 +11,8 @@ install.packages(c("devtools","pastecs","purrr","arules","glmnet","ranger","rdfl
 "GA","parallel","mgcv","qgam","FinCal","onlineforecast","matrixStats","gratia")
 # Additionally, is recommended to install libraries that are often used in pipelines based on 'biggr' functions
 install.packages(c("plotly","ggplot2","carrier","mlflow","mongolite","gridExtra"))
+# For vulnerability scanning (ISO compliance)
+install.packages("oysteR")
 ```
 Then, install the package through the GitHub installer if you want to use the last version of the code, or install an stable release located in the [releases repository](https://www.github.com/biggproject/biggr/releases) directly using the install.packages command.
 
@@ -20,6 +22,34 @@ devtools::install_github("biggproject/biggr")
 # Install stable version from the source package (*.tar.gz) 
 install.packages(<.tar.gz file>, repos = NULL, type ="source")
 ```
+
+## ISO Compliance - Vulnerability Checking
+
+The package includes functionality to check for vulnerabilities in dependencies, which is important for ISO compliance. To use this feature:
+
+```r
+# Basic usage - checks for critical vulnerabilities and creates an issue if found
+biggr::check_vulnerabilities()
+
+# Check for high or critical vulnerabilities but don't create an issue
+vuln_report <- biggr::check_vulnerabilities(create_issue = FALSE, severity_threshold = "high")
+
+# Save the vulnerability report to a file
+biggr::check_vulnerabilities(output_file = "vulnerability_report.csv")
+```
+
+### Automated Vulnerability Scanning
+
+The package repository includes a GitHub Actions workflow that automatically scans for vulnerabilities on a weekly basis. This workflow:
+
+- Runs every Monday at 00:00 UTC
+- Scans for high and critical vulnerabilities in all dependencies
+- Creates a GitHub issue if vulnerabilities are found
+- Uploads a detailed vulnerability report as a workflow artifact
+
+This automated scanning helps ensure continuous monitoring of security issues without manual intervention.
+
+The vulnerability checking functionality helps ensure that your project meets security requirements by identifying and reporting vulnerabilities in package dependencies.
 
 ## License
 This R package is licensed under the EUPL License. It also depends on other popular open-source R libraries, from which it will retain their licenses.
@@ -39,5 +69,3 @@ This R package is licensed under the EUPL License. It also depends on other popu
 - Manu Lahariya
 
 Copyright (c) 2022 Gerard Mor, Aleix Badia, Eloi Gabaldón, Jordi Carbonell, Stoyan Danov, Florencia Lazzari, Gerard Laguna, Marc Girona, Jordi Cipriano, Riccardo De Vivo, Manu Lahariya
-
-
