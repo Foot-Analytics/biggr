@@ -52,5 +52,6 @@ Suggests:
     plotly,
     carrier,
     mlflow,
-    mongolite
+    mongolite,
+    rcmdcheck
 VignetteBuilder: knitr
